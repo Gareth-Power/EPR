@@ -1,0 +1,19 @@
+# Keep patient data and dev-only files OUT of the image build context.
+data/
+backups/
+epr.db
+epr.db-wal
+epr.db-shm
+
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# docs / assets not needed at runtime
+*.md
+LICENSE
+Thumb.png
