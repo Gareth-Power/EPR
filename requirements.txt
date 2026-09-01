@@ -1,0 +1,5 @@
+# EPRSim server dependencies
+# Install into a virtualenv:  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+Flask>=3.0,<4.0
+
+# The one-off migration script (scripts/import_legacy.py) needs no extra packages.

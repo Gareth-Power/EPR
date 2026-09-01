@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Patient</title>
+    <script src="/shared.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .container {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .header {
+            background: #a9d1fc;
+            color: black;
+            padding: 12px 20px;
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+        .header #headerTitle { flex-shrink: 0; }
+        .header .header-spacer { flex: 1; }
+        .header .logo { height: 40px; width: auto; object-fit: contain; flex-shrink: 0; }
+
+        .header .mode-tag {
+            font-size: 13px;
+            font-weight: 600;
+            background: #222;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            letter-spacing: 0.04em;
+        }
+
+        .toolbar {
+            padding: 12px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        body.admin .toolbar { display: flex; }
+        .toolbar .spacer { flex: 1; }
+        .toolbar .editor-box { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
+        .toolbar .editor-box input { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; width: 150px; }
+        .toolbar a.btn { text-decoration: none; color: inherit; display: inline-block; }
+
+        button {
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 9px 16px;
+            border: 1px solid #b9c6d6;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .btn:hover { background: #eef4fc; }
+        .btn.primary { background: #a9d1fc; border-color: #a9d1fc; font-weight: 600; }
+        .btn.danger:hover { background: #fdecec; border-color: #e6a9a9; color: #c0392b; }
+
+        .patient-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .patient-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .patient-item:last-child { border-bottom: none; }
+        .patient-list a.patient-item { cursor: pointer; transition: background 0.2s; }
+        .patient-list a.patient-item:hover { background: #ebf3fc; }
+
+        .patient-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+
+        .patient-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            flex: 1;
+        }
+
+        .patient-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .detail-item { display: flex; gap: 6px; }
+        .detail-label { font-weight: 500; color: #555; }
+
+        .row-actions { display: flex; gap: 8px; }
+        body:not(.admin) .row-actions { display: none; }
+
+        .loading, .error, .empty {
+            padding: 40px;
+            text-align: center;
+            color: #666;
+        }
+        .error { color: #e74c3c; }
+
+        /* modal */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .overlay.open { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 460px;
+            max-width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+        }
+        .modal h3 { margin-bottom: 16px; }
+        .modal label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
+        .modal input {
+            width: 100%; padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px; font: inherit;
+        }
+        .meta-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+        .meta-row input { flex: 1; }
+        .meta-row button { border: 0; background: transparent; color: #999; font-size: 16px; cursor: pointer; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span id="headerTitle">Select Patient</span>
+            <span class="mode-tag" id="modeTag" hidden>ADMIN</span>
+            <span class="header-spacer"></span>
+            <img class="logo" src="/sail-icon.png" alt="SaIL">
+        </div>
+        <div class="toolbar">
+            <button class="btn primary" id="newPatientBtn">+ New Patient</button>
+            <a class="btn" href="/admin/history.html">Change log</a>
+            <span class="spacer"></span>
+            <span class="editor-box" id="editorBox"></span>
+        </div>
+        <div id="patientList" class="patient-list">
+            <div class="loading">Loading patients…</div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay">
+        <div class="modal">
+            <h3 id="modalTitle">New Patient</h3>
+            <label for="pName">Name</label>
+            <input type="text" id="pName" autocomplete="off">
+            <label>List details (shown on this page)</label>
+            <div id="metaRows"></div>
+            <button class="btn" id="addMetaRow" style="margin-top:8px;">+ Add field</button>
+            <div class="modal-actions">
+                <button class="btn" id="cancelModal">Cancel</button>
+                <button class="btn primary" id="saveModal">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var DEFAULT_FIELDS = ["Bed", "Age", "Admit Date", "Resus"];
+        var listEl = document.getElementById("patientList");
+        var editing = null; // patient object when editing, null when creating
+
+        if (E.ADMIN) {
+            document.body.classList.add("admin");
+            document.getElementById("modeTag").hidden = false;
+            document.getElementById("headerTitle").textContent = "Patients (Admin)";
+            renderEditorBox();
+            // shared.js shows a blocking name prompt on load; refresh the toolbar
+            // once it's answered.
+            document.addEventListener("epr:editor-set", renderEditorBox);
+        }
+
+        function renderEditorBox() {
+            var box = document.getElementById("editorBox");
+            var name = E.editor();
+            box.innerHTML = name
+                ? 'Editing as <strong>' + E.escapeHtml(name) + '</strong> · <a href="#" id="editorChange">change</a>'
+                : '<a href="#" id="editorChange">Set your name</a>';
+            box.querySelector("#editorChange").addEventListener("click", function (ev) {
+                ev.preventDefault();
+                var next = window.prompt("Your name for the change log:", E.editor());
+                if (next !== null && next.trim()) { E.setEditor(next); renderEditorBox(); }
+            });
+        }
+
+        function fmtDate(v) {
+            if (!v) return v;
+            var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v);
+            var d = m ? new Date(m[3] + "-" + m[2] + "-" + m[1]) : new Date(v);
+            if (isNaN(d)) return v;
+            return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        }
+
+        function render(patients) {
+            if (!patients.length) {
+                listEl.innerHTML = '<div class="empty">No patients yet.' +
+                    (E.ADMIN ? ' Use “+ New Patient”.' : '') + '</div>';
+                return;
+            }
+            listEl.innerHTML = "";
+            patients.forEach(function (p) {
+                var node = document.createElement(E.ADMIN ? "div" : "a");
+                node.className = "patient-item";
+                if (!E.ADMIN) node.href = E.linkTo("folder.html", p.id);
+
+                var details = Object.keys(p.meta || {}).map(function (k) {
+                    var val = p.meta[k] || "";
+                    if (/date/i.test(k)) val = fmtDate(val);
+                    return '<div class="detail-item"><span class="detail-label">' +
+                        E.escapeHtml(k) + ':</span> <span>' + E.escapeHtml(val) + "</span></div>";
+                }).join("");
+
+                node.innerHTML =
+                    '<div class="patient-header">' +
+                    '  <span class="patient-name">' + E.escapeHtml(p.name) + "</span>" +
+                    '  <span class="row-actions">' +
+                    '    <button class="btn" data-act="open">Open</button>' +
+                    '    <button class="btn" data-act="edit">Edit</button>' +
+                    '    <button class="btn danger" data-act="delete">Delete</button>' +
+                    "  </span>" +
+                    "</div>" +
+                    '<div class="patient-details">' + details + "</div>";
+
+                node.querySelectorAll("[data-act]").forEach(function (btn) {
+                    btn.addEventListener("click", function (ev) {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        var act = btn.dataset.act;
+                        if (act === "open") location.href = E.linkTo("folder.html", p.id);
+                        else if (act === "edit") openModal(p);
+                        else if (act === "delete") removePatient(p);
+                    });
+                });
+                listEl.appendChild(node);
+            });
+        }
+
+        function load() {
+            E.api.patients().then(render, function (err) {
+                listEl.innerHTML = '<div class="error">Error loading patients: ' +
+                    E.escapeHtml(err.message) + "</div>";
+            });
+        }
+
+        /* ---- modal ---- */
+        var overlay = document.getElementById("overlay");
+        var metaRows = document.getElementById("metaRows");
+
+        function addMetaRow(key, val) {
+            var row = document.createElement("div");
+            row.className = "meta-row";
+            row.innerHTML =
+                '<input class="mk" placeholder="Field" value="' + E.escapeHtml(key || "") + '">' +
+                '<input class="mv" placeholder="Value" value="' + E.escapeHtml(val || "") + '">' +
+                '<button type="button" title="Remove">&times;</button>';
+            row.querySelector("button").addEventListener("click", function () { row.remove(); });
+            metaRows.appendChild(row);
+        }
+
+        function openModal(patient) {
+            editing = patient || null;
+            document.getElementById("modalTitle").textContent = patient ? "Edit Patient" : "New Patient";
+            document.getElementById("pName").value = patient ? patient.name : "";
+            metaRows.innerHTML = "";
+            var meta = patient ? patient.meta : {};
+            var keys = Object.keys(meta || {});
+            if (!keys.length && !patient) DEFAULT_FIELDS.forEach(function (k) { addMetaRow(k, ""); });
+            else keys.forEach(function (k) { addMetaRow(k, meta[k]); });
+            overlay.classList.add("open");
+            document.getElementById("pName").focus();
+        }
+
+        function closeModal() { overlay.classList.remove("open"); editing = null; }
+
+        function saveModal() {
+            var name = document.getElementById("pName").value.trim();
+            if (!name) { alert("Name is required"); return; }
+            var meta = {};
+            metaRows.querySelectorAll(".meta-row").forEach(function (row) {
+                var k = row.querySelector(".mk").value.trim();
+                if (k) meta[k] = row.querySelector(".mv").value;
+            });
+            var p = editing
+                ? E.api.updatePatient(editing.id, { name: name, meta: meta })
+                : E.api.createPatient({ name: name, meta: meta });
+            p.then(function () { closeModal(); load(); },
+                   function (err) { alert("Save failed: " + err.message); });
+        }
+
+        function removePatient(p) {
+            if (!confirm('Delete "' + p.name + '" and all their data? This cannot be undone.')) return;
+            E.api.deletePatient(p.id).then(load, function (err) { alert("Delete failed: " + err.message); });
+        }
+
+        document.getElementById("newPatientBtn").addEventListener("click", function () { openModal(null); });
+        document.getElementById("addMetaRow").addEventListener("click", function () { addMetaRow("", ""); });
+        document.getElementById("cancelModal").addEventListener("click", closeModal);
+        document.getElementById("saveModal").addEventListener("click", saveModal);
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+
+        load();
+    })();
+    </script>
+</body>
+</html>

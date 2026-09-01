@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flowsheets</title>
+    <script src="/shared.js"></script>
+    <style>
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+
+        .csv-container { background: white; width: 100vw; height: 100vh; display: flex; flex-direction: column; position: relative; }
+        .csv-table-container { overflow: auto; height: 100%; width: 100%; padding: 10px 0 0 10px; box-sizing: border-box; }
+
+        table { width: max-content; border-collapse: collapse; background: white; }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 2px;
+            text-align: left;
+            min-width: 100px;
+            width: 120px;
+            max-width: 120px;
+            box-sizing: border-box;
+            height: 32px;
+        }
+        th:first-child, td:first-child {
+            min-width: 300px; width: 300px; max-width: 300px;
+            position: sticky; left: 0;
+            background: #e0e0e0 !important;
+            z-index: 10; font-weight: bold;
+            border: 2px solid #fff !important;
+        }
+        th:first-child { z-index: 11; }
+        th {
+            background: #e0e0e0; font-weight: bold;
+            position: sticky; top: 0; z-index: 12;
+            border: 2px solid #fff !important;
+        }
+        thead input { font-weight: bold; }
+        td:first-child input { font-weight: bold; }
+        .extra-col { background: #daebfe !important; }
+
+        input { border: none; outline: none; width: 100%; padding: 4px; font-size: 14px; background: transparent; }
+        input:focus { background: #e3f2fd; }
+
+        .csv-controls { position: absolute; right: 32px; bottom: 32px; display: flex; gap: 10px; z-index: 100; }
+        .csv-controls button {
+            border-radius: 24px; font-size: 16px; padding: 12px 28px;
+            background: #007bff; color: #fff; border: none; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .csv-controls button:hover { background: #0056b3; }
+        .msg { padding: 40px; text-align: center; color: #c0392b; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="csv-container" id="host">
+        <div class="csv-table-container">
+            <table id="csvTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+        </div>
+        <div class="csv-controls">
+            <button id="addEntryBtn" type="button">Add Entry</button>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var SHEET = "flowsheets";
+        var csvData = [];
+        var nowColumns = 1;
+
+        if (!E.patientId) { showMsg("No patient selected."); return; }
+
+        if (E.ADMIN) {
+            document.body.innerHTML = "";
+            E.mountFlowsheetEditor(document.body, E.patientId);
+            return;
+        }
+
+        document.getElementById("addEntryBtn").addEventListener("click", addEntry);
+
+        E.api.sheet(E.patientId, SHEET).then(function (res) {
+            csvData = res.grid || [];
+            renderTable();
+        }, function (err) { showMsg("Error loading flowsheets: " + err.message); });
+
+        function showMsg(text) {
+            document.getElementById("host").innerHTML = '<div class="msg">' + E.escapeHtml(text) + "</div>";
+        }
+
+        function renderTable() {
+            if (nowColumns < 1) nowColumns = 1;
+            var thead = document.getElementById("tableHead");
+            var tbody = document.getElementById("tableBody");
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+            if (csvData.length === 0) return;
+
+            var lastRow = csvData.length - 1;
+            for (; lastRow > 0; lastRow--) {
+                var hasText = false;
+                var r = csvData[lastRow] || [];
+                for (var col = 0; col < r.length; col++) {
+                    if (r[col] && r[col].toString().trim() !== "") { hasText = true; break; }
+                }
+                if (!hasText) {
+                    for (var n = 0; n < nowColumns; n++) {
+                        if (csvData[lastRow] && csvData[lastRow]["_extra" + n] &&
+                            csvData[lastRow]["_extra" + n].toString().trim() !== "") { hasText = true; break; }
+                    }
+                }
+                if (hasText) break;
+            }
+
+            var lastCol = 0;
+            for (var i = 0; i <= lastRow; i++) {
+                if (!csvData[i]) continue;
+                for (var c2 = 0; c2 < csvData[i].length; c2++) {
+                    if (csvData[i][c2] && csvData[i][c2].toString().trim() !== "" && c2 > lastCol) lastCol = c2;
+                }
+            }
+
+            var headerRow = document.createElement("tr");
+            for (var ci = 0; ci <= lastCol; ci++) {
+                var th = document.createElement("th");
+                var hi = document.createElement("input");
+                hi.value = (csvData[0] && csvData[0][ci]) || "";
+                hi.readOnly = true;
+                th.appendChild(hi);
+                headerRow.appendChild(th);
+            }
+            for (var hn = 0; hn < nowColumns; hn++) {
+                var nowTh = document.createElement("th");
+                if (hn === nowColumns - 1) nowTh.className = "extra-col";
+                var nowHi = document.createElement("input");
+                nowHi.value = hn === nowColumns - 1 ? "NOW" : (window._nowColTimes && window._nowColTimes[hn]) || "";
+                nowHi.readOnly = true;
+                nowTh.appendChild(nowHi);
+                headerRow.appendChild(nowTh);
+            }
+            thead.appendChild(headerRow);
+
+            for (var ri = 1; ri <= lastRow; ri++) {
+                var row = document.createElement("tr");
+                for (var cj = 0; cj <= lastCol; cj++) {
+                    var td = document.createElement("td");
+                    var inp = document.createElement("input");
+                    inp.value = csvData[ri][cj] !== undefined ? csvData[ri][cj] : "";
+                    inp.readOnly = true;
+                    td.appendChild(inp);
+                    row.appendChild(td);
+                }
+                for (var nn = 0; nn < nowColumns; nn++) {
+                    var nowTd = document.createElement("td");
+                    if (nn === nowColumns - 1) nowTd.className = "extra-col";
+                    var nowInp = document.createElement("input");
+                    var key = "_extra" + nn;
+                    if (!csvData[ri][key]) csvData[ri][key] = "";
+                    nowInp.value = csvData[ri][key];
+                    if (nn === nowColumns - 1) {
+                        (function (rowRef, k) {
+                            nowInp.readOnly = false;
+                            nowInp.addEventListener("input", function (e) { rowRef[k] = e.target.value; });
+                        })(csvData[ri], key);
+                    } else {
+                        nowInp.readOnly = true;
+                    }
+                    nowTd.appendChild(nowInp);
+                    row.appendChild(nowTd);
+                }
+                tbody.appendChild(row);
+            }
+        }
+
+        function addEntry() {
+            if (!window._nowColTimes) window._nowColTimes = [];
+            var now = new Date();
+            window._nowColTimes[nowColumns - 1] =
+                String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+            nowColumns++;
+            for (var i = 1; i < csvData.length; i++) {
+                if (!csvData[i]["_extra" + (nowColumns - 1)]) csvData[i]["_extra" + (nowColumns - 1)] = "";
+            }
+            renderTable();
+        }
+    })();
+    </script>
+</body>
+</html>

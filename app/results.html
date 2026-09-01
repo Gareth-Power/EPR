@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results</title>
+    <script src="/shared.js"></script>
+    <style>
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+
+        th:nth-child(2), td:nth-child(2) { background: #daebfe !important; }
+        tr.blank-row td { background: #fff !important; border: none !important; }
+
+        .csv-container { background: white; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        .csv-table-container { overflow: auto; height: 100%; width: 100%; padding: 10px 0 0 10px; box-sizing: border-box; }
+
+        table { width: max-content; height: 100%; border-collapse: collapse; background: white; }
+        th, td {
+            border: 1px solid #ddd; padding: 2px; text-align: left;
+            min-width: 100px; width: 120px; max-width: 120px; box-sizing: border-box; height: 32px;
+        }
+        th:first-child, td:first-child {
+            min-width: 300px; width: 300px; max-width: 300px;
+            position: sticky; left: 0; background: #e0e0e0 !important;
+            z-index: 10; font-weight: bold; border: 2px solid #fff !important;
+        }
+        th:first-child { z-index: 11; }
+        th { background: #e0e0e0; font-weight: bold; position: sticky; top: 0; z-index: 12; border: 2px solid #fff !important; }
+        thead input { font-weight: bold; }
+        td:first-child input { font-weight: bold; }
+        input { border: none; outline: none; width: 100%; padding: 4px; font-size: 14px; background: transparent; }
+        input:focus { background: #e3f2fd; }
+        .msg { padding: 40px; text-align: center; color: #c0392b; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="csv-container" id="host">
+        <div class="csv-table-container">
+            <table id="csvTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var SHEET = "results";
+        var csvData = [];
+
+        if (!E.patientId) { showMsg("No patient selected."); return; }
+
+        if (E.ADMIN) {
+            document.body.innerHTML = "";
+            E.mountGridEditor(document.body, E.patientId, SHEET, { label: "Results" });
+            return;
+        }
+
+        load();
+        setInterval(load, 5000);
+
+        function load() {
+            E.api.sheet(E.patientId, SHEET).then(function (res) {
+                csvData = res.grid || [];
+                renderTable();
+            }, function (err) {
+                if (!csvData.length) showMsg("Error loading results: " + err.message);
+            });
+        }
+
+        function showMsg(text) {
+            document.getElementById("host").innerHTML = '<div class="msg">' + E.escapeHtml(text) + "</div>";
+        }
+
+        function renderTable() {
+            var thead = document.getElementById("tableHead");
+            var tbody = document.getElementById("tableBody");
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+            if (csvData.length === 0) return;
+
+            var lastRow = csvData.length - 1;
+            for (; lastRow > 0; lastRow--) {
+                var hasText = false;
+                var r = csvData[lastRow] || [];
+                for (var c = 0; c < r.length; c++) {
+                    if (r[c] && r[c].toString().trim() !== "") { hasText = true; break; }
+                }
+                if (hasText) break;
+            }
+
+            var displayCols = [0];
+            if (csvData[0]) {
+                for (var col = 1; col < csvData[0].length; col++) {
+                    if (csvData[0][col] && csvData[0][col].toString().trim() !== "") displayCols.push(col);
+                }
+            }
+
+            var headerRow = document.createElement("tr");
+            displayCols.forEach(function (ci) {
+                var th = document.createElement("th");
+                var inp = document.createElement("input");
+                inp.value = csvData[0][ci] || "";
+                inp.readOnly = true;
+                th.appendChild(inp);
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            for (var i = 1; i <= lastRow; i++) {
+                var row = document.createElement("tr");
+                displayCols.forEach(function (ci) {
+                    var td = document.createElement("td");
+                    var inp = document.createElement("input");
+                    inp.value = csvData[i][ci] !== undefined ? csvData[i][ci] : "";
+                    inp.readOnly = true;
+                    td.appendChild(inp);
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            }
+
+            var container = document.querySelector(".csv-table-container");
+            var rowHeight = 32;
+            var visibleRows = Math.floor(container.offsetHeight / rowHeight) - 1;
+            for (var k = 0; k < visibleRows - lastRow; k++) {
+                var blank = document.createElement("tr");
+                blank.className = "blank-row";
+                var td = document.createElement("td");
+                td.colSpan = displayCols.length;
+                td.style.height = rowHeight + "px";
+                blank.appendChild(td);
+                tbody.appendChild(blank);
+            }
+        }
+    })();
+    </script>
+</body>
+</html>

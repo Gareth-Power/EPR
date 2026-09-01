@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Details</title>
+    <script src="/shared.js"></script>
+    <style>
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; background: #a9d1fc; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        }
+        .csv-container { background: white; padding: 20px; border-radius: 12px; }
+        table { border-collapse: collapse; }
+        th, td {
+            border: 1px solid #fff;
+            padding: 4px 18px;
+            font-size: 20px;
+            text-align: left;
+            min-width: 140px;
+            background: white;
+            line-height: 1.1;
+        }
+        th { font-weight: normal; }
+        th:first-child, td:first-child { font-weight: bold; }
+        .allergy-alert { background: #ff4d4d !important; color: #fff !important; font-weight: 700; }
+        .msg { padding: 40px; font-size: 18px; color: #c0392b; background: #fff; border-radius: 12px; }
+    </style>
+</head>
+<body>
+    <div class="csv-container" id="host">
+        <table id="csvTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var SHEET = "details";
+
+        if (!E.patientId) { showMsg("No patient selected."); return; }
+
+        if (E.ADMIN) {
+            document.body.innerHTML = "";
+            document.body.style.background = "#fff";
+            document.body.style.display = "block";
+            E.api.meta().then(function (m) {
+                E.mountGridEditor(document.body, E.patientId, SHEET, {
+                    label: "Details",
+                    fixedCols: 2,
+                    addRowLabel: "Detail",
+                    lockedRowLabels: m.details_standard_rows || [],
+                });
+            });
+            return;
+        }
+
+        E.api.sheet(E.patientId, SHEET).then(function (res) {
+            renderTable(res.grid || []);
+        }, function (err) { showMsg("Error loading details: " + err.message); });
+
+        function showMsg(text) {
+            document.getElementById("host").innerHTML = '<div class="msg">' + E.escapeHtml(text) + "</div>";
+        }
+
+        function renderTable(data) {
+            var head = document.getElementById("tableHead");
+            var body = document.getElementById("tableBody");
+            head.innerHTML = "";
+            body.innerHTML = "";
+            if (!data.length) data = [["Column 1", "Column 2"], ["", ""]];
+
+            var hr = document.createElement("tr");
+            for (var c = 0; c < 2; c++) {
+                var th = document.createElement("th");
+                th.textContent = (data[0] && data[0][c]) || "";
+                hr.appendChild(th);
+            }
+            head.appendChild(hr);
+
+            for (var i = 1; i < data.length; i++) {
+                var row = document.createElement("tr");
+                var colA = (data[i][0] || "").toString().trim();
+                var colB = (data[i][1] || "").toString().trim();
+                var isAllergyRow = colA.toLowerCase() === "allergy:";
+                var bLower = colB.toLowerCase();
+                var bBlankOrNone = colB === "" || bLower === "none" || bLower === "n/a" || bLower === "nkda";
+                for (var col = 0; col < 2; col++) {
+                    var td = document.createElement("td");
+                    td.textContent = data[i][col] || "";
+                    if (isAllergyRow && !bBlankOrNone) td.classList.add("allergy-alert");
+                    row.appendChild(td);
+                }
+                body.appendChild(row);
+            }
+        }
+    })();
+    </script>
+</body>
+</html>

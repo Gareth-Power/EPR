@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Folder</title>
+    <script src="/shared.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .container {
+            flex: 1;
+            min-height: 0;
+            background: white;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-bar {
+            display: flex;
+            background: #f8f9fa;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .tab {
+            flex: 1;
+            height: 52px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.2s ease;
+            padding-bottom: 11px;
+            border-radius: 16px 16px 0 0;
+        }
+        .tab:hover { background: #e9ecef; color: #495057; }
+        .tab.active { background: #a9d1fc; color: #222; }
+
+        .tab-back {
+            flex: 0 0 auto;
+            padding: 0 22px;
+            align-items: center;
+            justify-content: center;
+        }
+        .tab-back svg {
+            width: 22px; height: 22px;
+            fill: none; stroke: #5a6472; stroke-width: 3;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+        .tab-back:hover svg { stroke: #222; }
+
+        .mode-tag {
+            position: absolute;
+            top: 6px;
+            right: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #222;
+            color: #fff;
+            padding: 3px 9px;
+            border-radius: 10px;
+            letter-spacing: 0.05em;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .iframe-container { flex: 1; position: relative; background: white; }
+
+        .iframe-wrapper {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .iframe-wrapper.active { opacity: 1; pointer-events: auto; }
+
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #a9d1fc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container" id="mainContainer">
+        <div class="tab-bar" id="tabBar">
+            <button class="tab tab-back" id="backBtn" title="Back to patient list" aria-label="Back to patient list">
+                <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+            <button class="tab active" data-tab="0">Details</button>
+            <button class="tab" data-tab="1">Flowsheets</button>
+            <button class="tab" data-tab="2">Results</button>
+            <button class="tab" data-tab="3">Charts</button>
+            <button class="tab" data-tab="4">Notes</button>
+            <button class="tab" data-tab="5">MAR</button>
+            <span class="mode-tag" id="modeTag" hidden>ADMIN</span>
+        </div>
+
+        <div class="iframe-container" id="iframeContainer">
+            <div class="iframe-wrapper active">
+                <div class="loading"><div class="spinner"></div>Loading…</div>
+                <iframe data-page="details.html" title="Details"></iframe>
+            </div>
+            <div class="iframe-wrapper">
+                <div class="loading"><div class="spinner"></div>Loading…</div>
+                <iframe data-page="flowsheets.html" title="Flowsheets"></iframe>
+            </div>
+            <div class="iframe-wrapper">
+                <div class="loading"><div class="spinner"></div>Loading…</div>
+                <iframe data-page="results.html" title="Results"></iframe>
+            </div>
+            <div class="iframe-wrapper">
+                <div class="loading"><div class="spinner"></div>Loading…</div>
+                <iframe data-page="charts.html" title="Charts"></iframe>
+            </div>
+            <div class="iframe-wrapper">
+                <div class="loading"><div class="spinner"></div>Loading…</div>
+                <iframe data-page="notes.html" title="Notes"></iframe>
+            </div>
+            <div class="iframe-wrapper">
+                <div class="loading"><div class="spinner"></div>Loading…</div>
+                <iframe data-page="mar.html" title="MAR"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var pid = E.patientId;
+        var listUrl = E.base();
+
+        if (E.ADMIN) document.getElementById("modeTag").hidden = false;
+
+        if (!pid) {
+            document.getElementById("iframeContainer").innerHTML =
+                '<div class="loading">No patient selected. <a href="' + listUrl + '">Back to list</a></div>';
+            return;
+        }
+
+        var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab[data-tab]"));
+        var wrappers = Array.prototype.slice.call(document.querySelectorAll(".iframe-wrapper"));
+        var current = 0;
+
+        document.querySelectorAll("iframe").forEach(function (frame, i) {
+            frame.src = E.base() + frame.dataset.page + "?id=" + encodeURIComponent(pid);
+            frame.addEventListener("load", function () {
+                var l = wrappers[i].querySelector(".loading");
+                if (l) l.style.display = "none";
+            });
+        });
+
+        document.getElementById("tabBar").addEventListener("click", function (e) {
+            var btn = e.target.closest(".tab");
+            if (!btn || btn.dataset.tab === undefined) return;   // ignore the back tab
+            var idx = +btn.dataset.tab;
+            tabs[current].classList.remove("active");
+            wrappers[current].classList.remove("active");
+            tabs[idx].classList.add("active");
+            wrappers[idx].classList.add("active");
+            current = idx;
+        });
+
+        /* Back button: warn in viewer mode (session changes lost); admin persists so no warning. */
+        document.getElementById("backBtn").addEventListener("click", function () {
+            if (E.ADMIN) { location.href = listUrl; return; }
+            showBackConfirm();
+        });
+
+        function showBackConfirm() {
+            var overlay = document.createElement("div");
+            overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.25);z-index:20000;display:flex;align-items:center;justify-content:center";
+            var dialog = document.createElement("div");
+            dialog.style.cssText = "background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:28px;max-width:90vw;width:400px;text-align:center;font-size:17px";
+            dialog.innerHTML = '<div style="margin-bottom:22px">Return to the patient list? Any entries you added in this session (e.g. Flowsheet columns) will be cleared.</div>';
+            var ok = document.createElement("button");
+            ok.textContent = "Confirm";
+            ok.style.cssText = "background:#a9d1fc;color:#222;font-weight:bold;border:none;border-radius:8px;padding:10px 26px;margin:0 8px;font-size:15px;cursor:pointer";
+            ok.addEventListener("click", function () { location.href = listUrl; });
+            var cancel = document.createElement("button");
+            cancel.textContent = "Cancel";
+            cancel.style.cssText = "background:#eee;color:#222;font-weight:bold;border:none;border-radius:8px;padding:10px 26px;margin:0 8px;font-size:15px;cursor:pointer";
+            cancel.addEventListener("click", function () { overlay.remove(); });
+            dialog.appendChild(ok);
+            dialog.appendChild(cancel);
+            overlay.appendChild(dialog);
+            overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+    })();
+    </script>
+</body>
+</html>

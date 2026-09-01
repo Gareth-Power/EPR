@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAR</title>
+    <script src="/shared.js"></script>
+    <style>
+        tr:first-child td:nth-child(4), tr:first-child td:nth-child(2) { border: none !important; background: #fff !important; }
+        td:nth-last-child(-n+4), th:nth-last-child(-n+4) { width: 150px !important; min-width: 150px !important; max-width: 150px !important; }
+        td:nth-child(4), th:nth-child(4) { width: 64px !important; min-width: 64px !important; max-width: 64px !important; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Aptos Narrow', 'Segoe UI', Arial, sans-serif; font-size: 11pt; background: #fff; }
+        #container { padding: 10px 10px 0; overflow: auto; height: 100vh; }
+        table { border-collapse: collapse; background: #fff; }
+        td {
+            border: 1px solid #d0d0d0; padding: 4px 8px; text-align: center;
+            min-width: 80px; height: 21px;
+        }
+        td.row-header { background: #f0f0f0; font-weight: 600; min-width: 40px; color: #444; }
+        td.label-cell, td.label-cell input { background: #f9f9f9; font-weight: bold !important; color: #222 !important; min-width: 120px; }
+        td.data-cell, td.data-cell input { color: #222 !important; min-width: 160px; }
+        td.spacer-cell { border: none; background: #fff; min-width: 25px; }
+        td.a4-col, td.a4-col input { color: #222 !important; font-weight: bold !important; }
+        input {
+            width: 100%; border: none; background: transparent !important;
+            font-family: inherit; font-size: inherit; padding: 2px; outline: none; text-align: center;
+        }
+        input::placeholder { color: #999; }
+        input:focus { border: 1px solid #4a90e2; margin: -1px; }
+        .time-filled { background: #a9d1fc !important; }
+        tr.highlight-row td { background: #d6eaf7; }
+        tr.highlight-row td.label-cell { background: #d6eaf7; }
+        tr.highlight-row td.spacer-cell { background: #fff; }
+        .bold-col-c, .bold-col-c input { font-weight: bold !important; }
+        .invisible-cell { visibility: hidden; border-color: transparent; border-bottom-color: #d0d0d0; }
+        .msg { padding: 20px; color: #c00; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <table id="dataTable"><thead><tr id="headerRow"></tr></thead><tbody id="tableBody"></tbody></table>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var SHEET = "mar";
+        var headers = [];
+
+        if (!E.patientId) { document.getElementById("container").innerHTML = '<p class="msg">No patient selected.</p>'; return; }
+
+        if (E.ADMIN) {
+            document.body.innerHTML = "";
+            E.mountMarEditor(document.body, E.patientId);
+            return;
+        }
+
+        E.api.sheet(E.patientId, SHEET).then(function (res) {
+            var data = (res.grid || []).map(function (r) { return r.slice(); });
+            processData(data);
+        }, function (err) {
+            document.getElementById("container").innerHTML =
+                '<p class="msg">Error loading MAR: ' + E.escapeHtml(err.message) + "</p>";
+        });
+
+        function processData(data) {
+            while (data.length < 43) data.push([]);
+            for (var i = 0; i < data.length; i++) {
+                while (data[i].length < 20) data[i].push("");
+            }
+            if (data.length < 2) return;
+            headers = data[0].map(function (h) { return (h || "").toString().trim(); });
+            var tbody = document.getElementById("tableBody");
+            var maxCols = 7;
+
+            for (var r = 0; r < data.length; r++) {
+                var row = data[r];
+                var rowLabel = row[0] ? row[0].toString().trim() : "";
+                var drugSetIndex = Math.floor((r - 1) / 7);
+                var isHighlighted = drugSetIndex % 2 === 0;
+                var rowHTML;
+
+                if (r === 0) {
+                    rowHTML = '<td class="label-cell invisible-cell"></td>';
+                    for (var j = 1; j < Math.min(headers.length, maxCols); j++) {
+                        var cv = row[j] ? row[j].toString().trim() : "";
+                        rowHTML += '<td class="date-cell" style="font-weight:bold;">' + E.escapeHtml(cv) + "</td>";
+                        if (j === 1) rowHTML += '<td class="spacer-cell"></td>';
+                    }
+                } else {
+                    rowHTML = '<td class="label-cell"><input type="text" value="' + E.escapeHtml(rowLabel) + '" readonly /></td>';
+                    for (var c = 0; c < Math.min(headers.length, maxCols); c++) {
+                        var cellValue = row[c] ? row[c].toString().trim() : "";
+                        var isLastCol = c === Math.min(headers.length, maxCols) - 1;
+                        if (c === 0) {
+                            continue;
+                        } else if (c === 1) {
+                            rowHTML += '<td class="data-cell"><input type="text" value="' + E.escapeHtml(cellValue) + '"></td>';
+                            rowHTML += '<td class="spacer-cell"></td>';
+                        } else if (c === 2) {
+                            rowHTML += '<td class="date-cell bold-col-c"><input type="text" value="' + E.escapeHtml(cellValue) + '" readonly></td>';
+                        } else {
+                            var timeValue = "";
+                            var match = cellValue.match(/(\d{1,2}):(\d{2})/);
+                            if (match) timeValue = match[1].padStart(2, "0") + ":" + match[2];
+                            var cls = timeValue ? "time-filled" : "";
+                            rowHTML += '<td class="date-cell"><input type="time" value="' + timeValue + '" class="' + cls + '"' +
+                                (isLastCol ? "" : " readonly") + "></td>";
+                        }
+                    }
+                }
+
+                var tr = document.createElement("tr");
+                if (isHighlighted && r !== 0) tr.className = "highlight-row";
+                tr.innerHTML = rowHTML;
+                tbody.appendChild(tr);
+            }
+
+            document.getElementById("tableBody").addEventListener("input", function (e) {
+                if (e.target && e.target.type === "time") {
+                    e.target.classList.toggle("time-filled", !!e.target.value);
+                }
+            });
+        }
+    })();
+    </script>
+</body>
+</html>

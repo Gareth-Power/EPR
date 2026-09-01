@@ -1,0 +1,12 @@
+# Deployment data - everything lives under $EPR_DATA_DIR (default ./data).
+# NEVER commit this: it contains the patient database and uploaded files.
+/data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS noise
+.DS_Store
+Thumbs.db

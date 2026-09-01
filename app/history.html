@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Log</title>
+    <script src="/shared.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-size: 14px;
+            background: #f5f5f5;
+            color: #1f2430;
+        }
+        header {
+            background: #a9d1fc;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        header h1 { font-size: 20px; margin: 0; flex: 1; }
+        header a { color: #1f2430; font-size: 14px; }
+
+        .bar {
+            padding: 12px 24px;
+            background: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .bar input {
+            padding: 7px 10px; border: 1px solid #ccc; border-radius: 6px; font: inherit; min-width: 220px;
+        }
+        .bar button {
+            padding: 7px 14px; border: 1px solid #b9c6d6; background: #fff; border-radius: 6px; cursor: pointer; font: inherit;
+        }
+        .bar .count { color: #666; font-size: 13px; margin-left: auto; }
+
+        .wrap { padding: 0 24px 40px; }
+        table { border-collapse: collapse; width: 100%; background: #fff; margin-top: 16px; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+        th { position: sticky; top: 0; background: #eef1f4; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+        td.ts { white-space: nowrap; color: #666; font-variant-numeric: tabular-nums; }
+        td.who { white-space: nowrap; font-weight: 600; }
+        td.act { white-space: nowrap; }
+        .tag {
+            display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
+            background: #e6edf6; color: #33475b;
+        }
+        .tag.delete, .tag.delete-file { background: #fde4e4; color: #b23b3b; }
+        .tag.create { background: #e2f2e6; color: #2f7a43; }
+        .tag.edit { background: #e9ecf7; color: #4a4fb0; }
+        td.detail code { background: #f4f6f8; padding: 1px 5px; border-radius: 4px; }
+        .patient { color: #33475b; }
+        .empty, .error { padding: 40px; text-align: center; color: #777; }
+        .error { color: #c0392b; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Change Log</h1>
+        <a href="/admin/">← Back to patients</a>
+    </header>
+    <div class="bar">
+        <input id="filter" placeholder="Filter by patient, editor, field, text…" autocomplete="off">
+        <button id="refresh" type="button">Refresh</button>
+        <span class="count" id="count"></span>
+    </div>
+    <div class="wrap">
+        <div id="content"><div class="empty">Loading…</div></div>
+    </div>
+
+    <script>
+    (function () {
+        var E = window.EPR;
+        var rows = [];
+
+        function load() {
+            E.api.changes(2000).then(function (data) {
+                rows = data;
+                apply();
+            }, function (err) {
+                document.getElementById("content").innerHTML =
+                    '<div class="error">Could not load the change log: ' + E.escapeHtml(err.message) + "</div>";
+            });
+        }
+
+        function apply() {
+            var q = document.getElementById("filter").value.trim().toLowerCase();
+            var shown = rows.filter(function (r) {
+                if (!q) return true;
+                return (r.editor + " " + r.patient + " " + r.action + " " + r.sheet + " " + r.detail)
+                    .toLowerCase().indexOf(q) !== -1;
+            });
+            document.getElementById("count").textContent =
+                shown.length + " of " + rows.length + " entries";
+            var content = document.getElementById("content");
+            if (!shown.length) {
+                content.innerHTML = '<div class="empty">' +
+                    (rows.length ? "No entries match that filter." : "No changes recorded yet.") + "</div>";
+                return;
+            }
+            var html = '<table><thead><tr>' +
+                '<th>When</th><th>Who</th><th>Action</th><th>Patient</th><th>Field</th><th>Change</th>' +
+                '</tr></thead><tbody>';
+            shown.forEach(function (r) {
+                html += "<tr>" +
+                    '<td class="ts">' + E.escapeHtml(fmtTs(r.ts)) + "</td>" +
+                    '<td class="who">' + E.escapeHtml(r.editor) + "</td>" +
+                    '<td class="act"><span class="tag ' + E.escapeHtml(r.action) + '">' + E.escapeHtml(r.action) + "</span></td>" +
+                    '<td class="patient">' + E.escapeHtml(r.patient) + "</td>" +
+                    "<td>" + E.escapeHtml(r.sheet === "-" ? "" : r.sheet) + "</td>" +
+                    '<td class="detail">' + E.escapeHtml(r.detail) + "</td>" +
+                    "</tr>";
+            });
+            content.innerHTML = html + "</tbody></table>";
+        }
+
+        function fmtTs(iso) {
+            var d = new Date(iso);
+            if (isNaN(d)) return iso;
+            return d.toLocaleString("en-GB", {
+                day: "2-digit", month: "short", year: "numeric",
+                hour: "2-digit", minute: "2-digit",
+            });
+        }
+
+        document.getElementById("filter").addEventListener("input", apply);
+        document.getElementById("refresh").addEventListener("click", load);
+        load();
+    })();
+    </script>
+</body>
+</html>

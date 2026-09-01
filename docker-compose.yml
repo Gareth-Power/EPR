@@ -1,0 +1,22 @@
+# EPRSim - run with:  docker compose up -d   (then open http://<host>:8080/)
+#
+# Update to a new version:  docker compose pull && docker compose up -d
+#   -> the container is replaced, ./data is untouched, pending DB migrations
+#      run automatically (with a pre-migration backup under ./data/backups/).
+
+services:
+  epr:
+    # Use the published image, or build locally with:  docker compose up -d --build
+    image: eprsim:latest
+    build: .
+    container_name: eprsim
+    ports:
+      - "8080:8080"          # host:container. Use "127.0.0.1:8080:8080" to stay off the LAN.
+    volumes:
+      - ./data:/data         # all patient data. On a Synology: /volume1/docker/eprsim/data:/data
+    environment:
+      EPR_DATA_DIR: /data
+      # Match a host user so bind-mounted files aren't root-owned (Synology: your DSM user):
+      # PUID: "1026"
+      # PGID: "100"
+    restart: unless-stopped
