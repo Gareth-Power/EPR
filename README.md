@@ -19,6 +19,52 @@ There are two URLs:
 All edits are made in the admin interface. There are no Excel files and no
 user-accessible patient folders.
 
+## Setup
+
+You need **Docker Desktop** (<https://www.docker.com/products/docker-desktop/>) —
+nothing else, not this repository or a GitHub account.
+
+With Docker Desktop installed and running, open a terminal and run:
+
+```
+docker run -d --name epr -p 8080:8080 -v epr-data:/data --restart unless-stopped ghcr.io/gareth-power/epr:latest
+```
+
+That pulls the image from GitHub and starts it. Open:
+
+- <http://localhost:8080/> — viewer
+- <http://localhost:8080/admin/> — add and edit patients (empty on first run)
+
+Other computers on the same network use `http://<your-computer's-ip>:8080/`.
+
+**Update:**
+
+```
+docker pull ghcr.io/gareth-power/epr:latest
+docker rm -f epr
+docker run -d --name epr -p 8080:8080 -v epr-data:/data --restart unless-stopped ghcr.io/gareth-power/epr:latest
+```
+
+Patient data lives in the `epr-data` volume and is untouched by updates; schema
+changes migrate automatically.
+
+- **Stop:** `docker rm -f epr`, or the Stop button in Docker Desktop.
+- **Different port:** change `-p 8080:8080` to e.g. `-p 9000:8080`.
+
+> **No authentication** — the admin URL is open to anyone who can reach the
+> computer on the network. Use only on an isolated simulation network (see the
+> disclaimer at the end).
+
+### From a checkout instead
+
+If you have cloned or downloaded the repo, `docker compose up -d` does the same
+thing via `docker-compose.yml` (data goes in a `./data` folder beside it); add
+`--build` to build from source instead of pulling.
+
+**Synology (Container Manager):** create a Project, paste `docker-compose.yml`,
+point the volume at a shared folder, set `PUID` / `PGID` to your DSM user, and
+use `"8095:8080"` for the port if 8080 is taken.
+
 ## Code vs. data
 
 The **code** (this repo / the Docker image) and the **deployment data** are kept
@@ -57,29 +103,6 @@ Each patient has a row in `patients` (name + free-form `meta`), five rows in
 `sheets` (`details` / `flowsheets` / `results` / `notes` / `mar`, each a JSON
 2-D grid), and zero or more `files` rows.
 
-## Run with Docker (recommended)
-
-```
-docker compose up -d            # builds the image, starts on :8080
-```
-
-Open `http://<host>:8080/` (viewer) or `/admin/` (editor). Data is written to
-`./data` next to the compose file. To **update** later:
-
-```
-docker compose pull && docker compose up -d      # or: up -d --build
-```
-
-The container is replaced, `./data` is reattached untouched, and any pending
-migrations run automatically with a backup taken first.
-
-**Synology (Container Manager):** create a Project from `docker-compose.yml`,
-point the volume at a real shared folder (`/volume1/docker/EPR/data:/data`),
-and set `PUID` / `PGID` in the compose `environment:` to your DSM user so the
-uploaded files aren't root-owned. Offline NAS: `docker save
-ghcr.io/gareth-power/epr:latest | gzip > epr.tar.gz` and import the tarball
-through Container Manager.
-
 ## Run without Docker
 
 - Python 3.9+ and Flask (`pip install -r requirements.txt`).
@@ -89,22 +112,15 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python server.py            # EPR_DATA_DIR / EPR_PORT / EPR_HOST env, or --port / --host
 ```
 
-## Data and setup
+## Legacy import (reference only)
 
-A fresh deployment starts empty: on first run the server creates `epr.db` from
-the migrations and you add patients through `/admin/`.
-
-The original patients from the old `Patients/` Excel tree have already been
-imported into `data/epr.db` (schema v2). If you ever need to re-run that import
-against another copy of the old folder:
+`scripts/import_legacy.py` was used once to migrate the previous Excel-based
+system (`Patients/<name>/information.xlsx` + `patients.csv`) into the database.
+It is not part of normal use. To re-run it against a copy of an old folder:
 
 ```
-.venv/bin/python scripts/import_legacy.py --source /path/to/Patients [--force]
+python3 scripts/import_legacy.py --source /path/to/Patients [--force]
 ```
-
-> **No authentication.** The admin URL is open to anyone who can reach the host.
-> Run this only on an isolated simulation network, as described in the
-> disclaimer below.
 
 ## Using the admin interface
 
@@ -158,9 +174,13 @@ Open the patient and fill in the values.
 
 ## Backup
 
-Copy `$EPR_DATA_DIR` (the `./data` folder, or the Synology shared folder). That
-is the entire system state. `epr.db` can be copied while the server runs (WAL
-mode), or use `sqlite3 data/epr.db ".backup data/backups/manual.db"`.
+The whole system state is the data directory (`epr.db`, `files/`, `changes.log`,
+`backups/`). It can be copied while the server runs (WAL mode).
+
+- **`docker run` quick start:** it's in the `epr-data` volume. Save a copy with
+  `docker run --rm -v epr-data:/data -v "$PWD":/out alpine tar czf /out/epr-backup.tgz -C /data .`
+  (Docker Desktop can also browse and export volumes from the **Volumes** tab).
+- **From a checkout / Synology:** copy the `data` (or mounted shared) folder.
 
 ## Third-party components
 
