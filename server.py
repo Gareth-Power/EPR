@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""EPRSim local server: static viewer/admin UI + JSON API backed by SQLite.
+"""EPR local server: static viewer/admin UI + JSON API backed by SQLite.
 
 Run:  python3 server.py  [--port 8080] [--host 0.0.0.0]
 Then open http://<host-ip>:8080/         (viewer, read-only)
@@ -570,7 +570,7 @@ def json_error(err):
 
 # ------------------------------------------------------------------------ main
 def main():
-    ap = argparse.ArgumentParser(description="EPRSim local server")
+    ap = argparse.ArgumentParser(description="EPR local server")
     ap.add_argument("--host", default=os.environ.get("EPR_HOST", "0.0.0.0"))
     ap.add_argument("--port", type=int, default=int(os.environ.get("EPR_PORT", "8080")))
     args = ap.parse_args()
@@ -588,7 +588,7 @@ def main():
     except OSError:
         pass
 
-    print("EPRSim server running")
+    print("EPR server running")
     print(f"  data   :  {DATA_DIR}")
     print(f"  viewer :  http://{lan}:{args.port}/")
     print(f"  admin  :  http://{lan}:{args.port}/admin/")

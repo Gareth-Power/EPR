@@ -1,4 +1,4 @@
-# EPRSim
+# EPR
 #
 #   Deploy (pull the published image):   docker compose up -d
 #   Update:                              docker compose pull && docker compose up -d
@@ -11,7 +11,7 @@ services:
   epr:
     image: ghcr.io/gareth-power/epr:latest
     build: .                 # only used with `--build`; ignored by `pull`
-    container_name: eprsim
+    container_name: epr
     ports:
       - "8080:8080"          # host:container. Use "127.0.0.1:8080:8080" to stay off the LAN.
                              # If 8080 is taken (e.g. on a Synology), use "8095:8080".

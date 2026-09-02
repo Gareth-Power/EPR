@@ -1,4 +1,4 @@
-# EPRSim - code only. All patient data lives in the /data volume, never the image.
+# EPR - code only. All patient data lives in the /data volume, never the image.
 FROM python:3.12-slim
 
 # tini = correct signal handling; gosu = optional drop to a host UID (see entrypoint)

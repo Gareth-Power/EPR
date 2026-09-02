@@ -1,4 +1,4 @@
--- EPRSim schema v1
+-- EPR schema v1
 -- (connection pragmas such as foreign_keys / journal_mode are set in db.connect)
 
 CREATE TABLE IF NOT EXISTS patients (

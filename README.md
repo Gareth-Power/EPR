@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="Thumb.png" alt="EPRSim" />
+  <img src="Thumb.png" alt="EPR" />
 </p>
 
 # EPR
 
-EPRSim is a browser-based simulated patient record system for teaching and
+EPR is a browser-based simulated patient record system for teaching and
 simulation delivery. It shows a patient list, opens a tabbed patient folder view
 (Details, Flowsheets, Results, Charts, Notes, MAR), and now stores everything in
 a small local database instead of per-patient Excel workbooks and folders.
@@ -74,10 +74,11 @@ The container is replaced, `./data` is reattached untouched, and any pending
 migrations run automatically with a backup taken first.
 
 **Synology (Container Manager):** create a Project from `docker-compose.yml`,
-point the volume at a real shared folder (`/volume1/docker/eprsim/data:/data`),
+point the volume at a real shared folder (`/volume1/docker/EPR/data:/data`),
 and set `PUID` / `PGID` in the compose `environment:` to your DSM user so the
-uploaded files aren't root-owned. Offline NAS: `docker save eprsim:latest | gzip
-> eprsim.tar.gz` and import the tarball through Container Manager.
+uploaded files aren't root-owned. Offline NAS: `docker save
+ghcr.io/gareth-power/epr:latest | gzip > epr.tar.gz` and import the tarball
+through Container Manager.
 
 ## Run without Docker
 

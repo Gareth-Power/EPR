@@ -1,4 +1,4 @@
-"""Database location, connections and schema migrations for EPRSim.
+"""Database location, connections and schema migrations for EPR.
 
 The *code* (this repo / the Docker image) is separate from the *data*. Everything
 that is specific to a deployment lives under one directory:

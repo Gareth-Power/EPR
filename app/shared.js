@@ -1,4 +1,4 @@
-/* EPRSim shared front-end helpers: API client, mode detection, grid editor.
+/* EPR shared front-end helpers: API client, mode detection, grid editor.
    Loaded by every page. Exposes window.EPR. */
 (function () {
   "use strict";
